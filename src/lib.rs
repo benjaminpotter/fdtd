@@ -5,6 +5,10 @@ pub struct Mesh {
     w: usize,
     h: usize,
 
+    dx: f64,
+    dy: f64,
+    dt: f64,
+
     ez: Vec<f64>,
     hx: Vec<f64>,
     hy: Vec<f64>,
@@ -16,9 +20,19 @@ impl Mesh {
     pub fn new() -> Self {
         let width: usize = 500;
         let height: usize = 500;
+
+        let dx: f64 = 1.;
+        let dy: f64 = 1.;
+
+        let c = 1.;
+        let dt: f64 = 0.5; // consider CFL condition in futur
+
         Mesh {
             w: width,
             h: height,
+            dx,
+            dy,
+            dt,
             ez: vec![0.; width * height],
             hx: vec![0.; width * height],
             hy: vec![0.; width * height],
@@ -31,13 +45,17 @@ impl Mesh {
     }
 
     pub fn step(&mut self) {
+        let chx = self.dt / self.dy;
+        let chy = self.dt / self.dx;
+        let cez = self.dt / self.dx;
+
         // Update H_x
         for x in 0..self.w {
             for y in 0..self.h - 1 {
                 let i0 = Self::index(x, y, self.w);
                 let i1 = Self::index(x, y + 1, self.w);
 
-                self.hx[i0] -= (self.ez[i1] - self.ez[i0]) / 377.;
+                self.hx[i0] -= (self.ez[i1] - self.ez[i0]) * chx;
             }
         }
 
@@ -47,7 +65,7 @@ impl Mesh {
                 let i0 = Self::index(x, y, self.w);
                 let i1 = Self::index(x + 1, y, self.w);
 
-                self.hy[i0] += (self.ez[i1] - self.ez[i0]) / 377.;
+                self.hy[i0] += (self.ez[i1] - self.ez[i0]) * chy;
             }
         }
 
@@ -58,14 +76,16 @@ impl Mesh {
                 let i1 = Self::index(x - 1, y, self.w);
                 let i2 = Self::index(x, y - 1, self.w);
 
-                self.ez[i0] += ((self.hy[i0] - self.hy[i1]) - (self.hx[i0] - self.hx[i2])) * 377.;
+                self.ez[i0] += ((self.hy[i0] - self.hy[i1]) - (self.hx[i0] - self.hx[i2])) * cez;
             }
         }
 
         let mid = Self::index(self.w / 2, self.h / 2, self.w);
-        self.ez[mid] += (-(self.time - 20.0).powf(2.) / 100.0).exp();
+        let peak_time = 30.0 * self.dt;
+        let pulse_width = 10.0 * self.dt;
+        self.ez[mid] += (-(self.time - peak_time).powf(2.) / pulse_width.powf(2.)).exp();
 
-        self.time += 1.;
+        self.time += self.dt;
     }
 
     pub fn serialize(&self, fd: &mut fs::File) -> Result<(), Error> {
