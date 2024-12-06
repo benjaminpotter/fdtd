@@ -1,5 +1,7 @@
 use crate::error::Error;
 use crate::mesh::{Mesh, MeshBuilder};
+use chrono::Utc;
+use std::fs;
 
 pub struct Simulation {
     steps: usize,
@@ -8,21 +10,33 @@ pub struct Simulation {
 }
 
 impl Simulation {
-    pub fn start(mut self) {
+    pub fn start(mut self) -> Result<(), Error> {
+        println!("-- starting simulation");
+
+        let timestamp = Utc::now().format("%y-%m-%d-%H-%M-%S").to_string();
+        fs::create_dir(format!["data/{}", timestamp])?;
+
+        println!("-- timestamp:   {:?}", timestamp);
+        println!("-- steps:       {:?}", 1000);
+        println!("-- sample_rate: {:?}", 10);
+
+        println!("-- begin simulation");
+
         for i in 0..self.steps {
             self.mesh.step();
-            println!("-- step {:010}", i);
 
-            // Skip for now.
-            // if i % sampling_period == 0 {
-            //     let filename = format!["data/{}/{:010}.efld", timestamp, i];
-            //     let mut fd = fs::File::create(filename).expect("failed to create efld file");
-            //     mesh.serialize(&mut fd)
-            //         .expect("failed to write data to efld file");
+            if i % self.sample_rate == 0 {
+                let filename = format!["data/{}/{:010}.efld", timestamp, i];
+                let mut fd = fs::File::create(filename).expect("failed to create efld file");
+                self.mesh.serialize(&mut fd)?;
 
-            //     println!("-- wrote {:010}", i);
-            // }
+                println!("-- wrote {:010}", i);
+            }
         }
+
+        println!("-- exiting");
+
+        Ok(())
     }
 }
 

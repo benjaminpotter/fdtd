@@ -1,5 +1,6 @@
+use crate::error::Error;
 use std::fs;
-use std::io::{Error, Write};
+use std::io::Write;
 
 pub struct Mesh {
     w: usize,
