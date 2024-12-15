@@ -2,6 +2,13 @@ use crate::error::Error;
 use std::fs;
 use std::io::Write;
 
+pub struct PointSource {
+    x: usize,
+    y: usize,
+    peak_time: f64,
+    pulse_width: f64,
+}
+
 pub struct Mesh {
     w: usize,
     h: usize,
@@ -15,6 +22,8 @@ pub struct Mesh {
     hy: Vec<f64>,
 
     time: f64,
+
+    sources: Vec<PointSource>,
 }
 
 impl Mesh {
@@ -58,10 +67,12 @@ impl Mesh {
             }
         }
 
-        let mid = Self::index(self.w / 2, self.h / 2, self.w);
-        let peak_time = 30.0 * self.dt;
-        let pulse_width = 10.0 * self.dt;
-        self.ez[mid] += (-(self.time - peak_time).powf(2.) / pulse_width.powf(2.)).exp();
+        for s in &self.sources {
+            let i = Self::index(s.x, s.y, self.w);
+            let peak_time = s.peak_time * self.dt;
+            let pulse_width = s.pulse_width * self.dt;
+            self.ez[i] += (-(self.time - peak_time).powf(2.) / pulse_width.powf(2.)).exp();
+        }
 
         self.time += self.dt;
     }
@@ -87,6 +98,7 @@ pub struct MeshBuilder {
     dx: f64,
     dy: f64,
     safety_factor: f64,
+    sources: Vec<PointSource>,
 }
 
 impl MeshBuilder {
@@ -97,6 +109,7 @@ impl MeshBuilder {
             dx: 1.0,
             dy: 1.0,
             safety_factor: 0.9,
+            sources: Vec::new(),
         }
     }
 
@@ -125,6 +138,22 @@ impl MeshBuilder {
         self
     }
 
+    pub fn with_point_source(
+        mut self,
+        x: usize,
+        y: usize,
+        peak_time: f64,
+        pulse_width: f64,
+    ) -> Self {
+        self.sources.push(PointSource {
+            x,
+            y,
+            peak_time,
+            pulse_width,
+        });
+        self
+    }
+
     pub fn build(self) -> Mesh {
         const C: f64 = 1.00;
 
@@ -140,6 +169,7 @@ impl MeshBuilder {
             hx: vec![0.; self.w * self.h],
             hy: vec![0.; self.w * self.h],
             time: 0.,
+            sources: self.sources,
         }
     }
 }
